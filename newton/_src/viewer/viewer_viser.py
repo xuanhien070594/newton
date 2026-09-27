@@ -949,6 +949,12 @@ class ViewerViser(ViewerBase):
             num_instances,
             value_name="Opacity",
         )
+        # viser renders any batched_opacities in the transparent pass; keep fully opaque shapes opaque.
+        if opacities_np is not None and np.all(opacities_np >= 1.0):
+            opacities_np = None
+            opacities_all_opaque = True
+        else:
+            opacities_all_opaque = False
 
         # Extract positions from transforms
         # Warp transform format: [x, y, z, qx, qy, qz, qw]
@@ -996,7 +1002,12 @@ class ViewerViser(ViewerBase):
                         handle.batched_colors = batched_colors
                         # Cache the colors for future reference
                         self._instances[name]["colors"] = batched_colors
-                    if opacities_np is not None:
+                    if opacities_all_opaque:
+                        # Only on a translucent -> opaque change; a per-frame None resend rebuilds the material.
+                        if self._instances[name].get("opacities") is not None and hasattr(handle, "batched_opacities"):
+                            handle.batched_opacities = None
+                            self._instances[name]["opacities"] = None
+                    elif opacities_np is not None:
                         if hasattr(handle, "batched_opacities"):
                             handle.batched_opacities = opacities_np
                             self._instances[name]["opacities"] = opacities_np
